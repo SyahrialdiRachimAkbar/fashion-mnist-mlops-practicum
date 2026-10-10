@@ -1,136 +1,106 @@
-# Praktikum MLflow: CNN Fashion-MNIST
+# Laporan Praktikum MLOps: CNN Fashion-MNIST
 
-Implementasi tugas pada slide 88 `slide_presentation.pdf`. Pipeline mencakup baseline CNN, 20 trial Optuna dengan nested runs, tiga seed, dua ablation, DVC, dan prediksi melalui alias model registry.
+Praktikum berdasarkan tugas pada slide 88 [materi perkuliahan](slide_presentation.pdf). Eksperimen selesai: 30 training run, 20 trial Optuna, tiga seed, dua ablation, dan model registry dengan alias `champion`.
 
-Hasil eksperimen berada pada [laporan](reports/laporan.md). Periksa status di awal laporan sebelum mengumpulkannya. Laporan yang belum selesai tidak berisi metrik hasil buatan.
+Panduan instalasi dan menjalankan ulang eksperimen tersedia di [panduan proyek](docs/panduan.md). Hasil per run tersedia di [run_results.csv](reports/run_results.csv).
 
-## Menyiapkan proyek di Windows
+## Pertanyaan dan hipotesis
 
-Gunakan Python 64-bit versi 3.12 sampai 3.14, Git, dan koneksi internet untuk setup. Di lingkungan ini Python yang tersedia adalah 3.14.2; `.venv` memakai interpreter tersebut. Setup memasang paket ke environment proyek, bukan ke Python global.
+Apakah tuning hyperparameter memperbaiki macro F1 CNN Fashion-MNIST dibanding baseline? Apakah augmentasi ringan dan dropout membantu generalisasi pada split yang tetap?
 
-```powershell
-cd 'C:\Akbar\MLops Tugas'
-.\scripts\setup.ps1
-```
+Hipotesis awal: konfigurasi hasil tuning meningkatkan rata-rata validation macro F1 terhadap baseline; augmentasi meningkatkan F1 terhadap kondisi tanpa augmentasi; dropout meningkatkan F1 terhadap kondisi tanpa dropout. Pengujian memakai split tetap dan pasangan seed yang sama untuk ablation.
 
-Jika PowerShell memblokir script lokal, jalankan script yang sudah kamu periksa dengan:
+## Metode
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup.ps1
-```
+Rancangan memakai subset stratified Fashion-MNIST: 12,000 train dan 3,000 validation dari training resmi, dengan split seed 42. Test set resmi hanya dibuka setelah seleksi dikunci. Normalisasi dihitung pada train saja.
 
-Setup memasang `requirements.txt`, mengunduh Fashion-MNIST, menyimpan split tetap, menjalankan `dvc add data`, dan membuat remote DVC lokal di `storage/dvc`. Data mentah dan split tidak masuk Git. DVC memverifikasi dataset terhadap checksum sumber saat torchvision mengunduhnya.
+CNN terdiri dari convolution 16 dan 32 channel, max pooling, serta classifier 64 unit. Optimizer Adam; setiap training mendapat 5 epoch di CPU. Checkpoint dipilih dari validation macro F1 tertinggi; jika seri, epoch lebih awal dipertahankan. Accuracy dan loss menjadi metrik tambahan.
 
-Setelah persiapan data, simpan kode dan pointer dataset dalam commit sebelum training:
+Optuna memakai TPE, sampler seed 42, learning rate log-uniform 0.0001 sampai 0.003, batch size [64, 128], dan dropout [0.2, 0.35, 0.5]. Targetnya 20 trial selesai tanpa pruning, dijalankan berurutan sebagai nested runs MLflow.
 
-```powershell
-git status
-git add .
-git commit -m "Implement Fashion-MNIST experiment tracking practicum"
-```
+Konfigurasi terbaik dilatih ulang dengan seed [42, 123, 2026]. Kedua ablation memakai seed yang sama tanpa tuning ulang. Std yang dilaporkan adalah sample standard deviation (ddof=1).
 
-Gunakan identitas Git milikmu jika Git meminta nama/email. Tidak ada perintah push dalam setup atau pipeline.
+## Bukti pelaksanaan
 
-## Memeriksa dan menjalankan pipeline
+| Kelompok | Run selesai |
+|---|---:|
+| baseline | 1 |
+| tuning | 20 |
+| full | 3 |
+| ablation_no_augmentation | 3 |
+| ablation_no_dropout | 3 |
 
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-```
+Hash dataset DVC: `c95678b8afeec35589cf720d41ef426b.dir`.
 
-Pada terminal pertama, jalankan server. Metadata dan model registry memakai SQLite; file artifact disimpan melalui server ke folder lokal.
+SHA-256 indeks split: `d10782b84d0544a9a4bc7129d613aa075f226843d89b4dac0408399e4c9a724c`.
 
-```powershell
-.\scripts\start_mlflow.ps1
-```
+## Hasil validation
 
-Pada terminal kedua, jalankan pemeriksaan singkat. Ini memakai 128 train dan 64 validation selama satu epoch, pada experiment terpisah; run ini bukan bagian dari 20 trial atau hasil praktikum.
+| Kelompok | n | Macro F1 | Accuracy |
+|---|---:|---:|---:|
+| Baseline | 1 | 0.8307 | 0.8347 |
+| full | 3 | 0.8216 ± 0.0182 | 0.8289 ± 0.0149 |
+| ablation_no_augmentation | 3 | 0.8709 ± 0.0058 | 0.8716 ± 0.0061 |
+| ablation_no_dropout | 3 | 0.8560 ± 0.0017 | 0.8560 ± 0.0003 |
 
-```powershell
-.\.venv\Scripts\python.exe -m fashion_mlops smoke
-```
+Baseline menggunakan satu seed, sehingga selisihnya terhadap rata-rata tiga seed tidak membuktikan signifikansi statistik.
 
-Lalu jalankan seluruh eksperimen:
+Konfigurasi tuning terpilih: learning rate 0.00274949, batch size 128, dropout 0.5. Run sumber: `37f66a8861034bbd89702c5abef2525d`.
 
-```powershell
-.\scripts\run_practicum.ps1
-```
+Kontribusi augmentasi, dihitung sebagai full minus ablation untuk pasangan seed: -4.93 ± 2.37 poin persentase. Pada eksperimen ini, penghapusan komponen tidak menurunkan rata-rata F1. Tiga pasangan seed belum cukup untuk klaim umum.
 
-Alternatif satu terminal: `scripts/run_practicum.ps1 -StartServer` menyalakan MLflow di background dengan log di `outputs/`, lalu menjalankan pipeline. Server tetap hidup agar UI bisa digunakan setelah training selesai. Jangan memakai opsi ini jika server sudah berjalan pada port 5000.
+Kontribusi dropout, dihitung sebagai full minus ablation untuk pasangan seed: -3.44 ± 1.96 poin persentase. Pada eksperimen ini, penghapusan komponen tidak menurunkan rata-rata F1. Tiga pasangan seed belum cukup untuk klaim umum.
 
-Pipeline berurutan: baseline → tune → seeds → ablation → evaluate → register → predict → report. Total minimum 30 training run: 1 baseline, 20 tuning, 3 full model, dan 6 ablation. Parent runs serta smoke tidak dihitung.
+## Evaluasi test final
 
-Durasi bergantung pada CPU dan beban laptop. Gunakan waktu baseline sebagai perkiraan awal; jangan mengubah data atau epoch di tengah study untuk mempercepat run yang belum selesai.
+Semua kandidat dan aturan pemilihan champion sudah dikunci sebelum test set dibuka. Test tidak dipakai untuk memilih konfigurasi atau seed.
 
-## Menjalankan tahap secara terpisah
+| Metrik | Mean ± sample std, tiga seed |
+|---|---:|
+| f1_macro | 0.8152 ± 0.0125 |
+| accuracy | 0.8223 ± 0.0098 |
+| loss | 0.4614 ± 0.0175 |
 
-Semua perintah memakai prefix `.\.venv\Scripts\python.exe -m fashion_mlops`:
+Champion dipilih berdasarkan validation macro F1 dari run `ed05f1188199455aa8cd4e222bd02aac`.
 
-| Perintah | Perilaku |
-|---|---|
-| `doctor` | Memeriksa interpreter dan paket yang dibutuhkan; exit code 1 jika ada yang kurang |
-| `prepare-data` | Mengunduh, memilih subset, menyimpan indeks, menghitung normalisasi train, dan memversikan data |
-| `smoke` | Menguji satu epoch kecil pada experiment terpisah |
-| `baseline` | Melatih baseline; mengembalikan run tersimpan jika sudah selesai |
-| `tune` | Menjalankan sampai 20 trial COMPLETE dan run MLflow FINISHED |
-| `seeds` | Melatih konfigurasi terbaik dari awal untuk seed 42, 123, dan 2026 |
-| `ablation` | Menghapus augmentasi atau dropout, masing-masing dengan tiga seed yang sama |
-| `evaluate` | Mengunci kandidat, membuka test set, dan mengevaluasi tiga full model |
-| `register` | Mendaftarkan champion dan membandingkan output registry dengan checkpoint |
-| `predict` | Memuat `models:/fashion-mnist-cnn@champion` dan memprediksi sepuluh contoh validation |
-| `report` | Menulis laporan dan CSV dari hasil nyata; menandai laporan parsial |
-| `status` | Menampilkan jumlah run selesai serta status evaluasi/registry |
-| `all` | Menjalankan semua tahap setelah data siap dan server hidup |
+Ruang kandidat champion ditetapkan pada tiga seed model full hasil tuning. Ablation dipakai untuk mengukur pengaruh komponen dan tidak masuk ruang kandidat tersebut. Karena itu, alias champion merujuk model full terpilih. Kondisi tanpa augmentasi dan tanpa dropout memiliki validation F1 lebih tinggi, tetapi belum dievaluasi pada test set dalam rancangan ini.
 
-Konfigurasi berada di `configs/default.yaml`. Argumen `--config` menerima file YAML alternatif. Tentukan konfigurasi sebelum training pertama; hash konfigurasi dan data harus tetap sama saat melanjutkan pipeline. Satu proses pipeline diperbolehkan pada satu waktu.
+![Confusion matrix test](reports/figures/confusion_matrix.png)
 
-## Desain eksperimen
+![Kurva training champion](reports/figures/learning_curves.png)
 
-Fashion-MNIST dipilih sebagai dataset citra kecil yang dapat dilatih di CPU. Subset terdiri dari 12.000 train dan 3.000 validation yang seimbang per kelas, dipilih dari 60.000 training resmi. Sebanyak 10.000 test resmi dikunci untuk tahap akhir. Indeks split disimpan, terpisah dari seed training. Normalisasi hanya dihitung dari subset train.
+## Model registry
 
-CNN memakai dua convolution, 16 dan 32 channel, masing-masing diikuti ReLU dan pooling. Classifier memakai 64 unit, dropout, dan 10 logit kelas. Baseline: Adam, learning rate 0.001, batch size 64, dropout 0.3, lima epoch. Augmentasi berupa random crop 28×28 dengan padding 2 serta horizontal flip. Model full selalu memiliki augmentasi dan dropout nonzero agar kedua ablation memiliki komponen yang benar-benar dapat dihapus.
+Model `fashion-mnist-cnn`, versi `1`, memiliki alias `champion`. Inferensi memakai `models:/fashion-mnist-cnn@champion`. Pemeriksaan output registry terhadap checkpoint sumber: sesuai.
 
-Metrik seleksi adalah validation macro F1, bukan accuracy atau test F1. Checkpoint memakai epoch dengan validation F1 tertinggi. Optuna mencari learning rate 0.0001–0.003 pada skala log, batch size 64/128, dan dropout 0.2/0.35/0.5. Setiap trial mendapat lima epoch, seed training 42, dan split yang sama. Trial berjalan satu per satu tanpa pruning.
+Bukti tambahan: [champion_predictions.json](reports/champion_predictions.json).
 
-Konfigurasi terbaik dilatih ulang menggunakan tiga seed. Ablation hanya mengubah augmentasi atau dropout; komponen lain dan seed tetap. Selisih ablation dihitung berpasangan: F1 full minus F1 ablation pada seed yang sama. Mean ± std menggunakan sample standard deviation (ddof=1).
+Bukti tambahan: [verification.json](reports/verification.json).
 
-Seleksi champion dari tiga full model memakai validation F1, dengan run ID sebagai pemecah seri. Pilihan disimpan sebelum test dibuka. Ketiga full model dievaluasi pada satu tahap final. Test tidak digunakan untuk tuning, memilih seed, atau mengulang keputusan. Hasil evaluasi yang sudah tersimpan dipakai ulang saat pipeline dilanjutkan; training baru ditolak setelah seleksi final dikunci.
+## Reproduksibilitas dan batasan
 
-## Melanjutkan setelah interupsi
+Setiap run menyimpan commit Git, diff kode, hash DVC, hash split, konfigurasi, seed, versi environment, metrik per epoch, dan model. Source code, pointer DVC, serta laporan disimpan di Git; database MLflow, artifact, dan data mentah berada di penyimpanan lokal.
 
-Jalankan kembali `all` dengan konfigurasi dan data yang sama. Baseline dan seed yang selesai dilewati. SQLite Optuna menyimpan trial; hanya trial COMPLETE yang dihitung menuju target 20. Trial RUNNING yang tertinggal ditandai gagal pada proses lanjutan. Run gagal tetap tersimpan sebagai bukti, bukan dihapus.
+Subset dan anggaran epoch membatasi kesimpulan pada rancangan praktikum ini. Rata-rata tiga seed menggambarkan variasi inisialisasi dan shuffling pada satu split, bukan variasi seluruh kemungkinan dataset. Studi Optuna yang dilanjutkan menyimpan trial sebelumnya, tetapi urutan usulan baru dapat berbeda dari pencarian tanpa interupsi karena state sampler tidak disimpan di SQLite.
 
-Usulan Optuna setelah resume dapat berbeda dari pencarian tanpa interupsi karena SQLite tidak menyimpan state RNG sampler. Parameter setiap trial tersimpan sehingga masing-masing training tetap bisa diulang. Setelah tahap test dikunci, jangan menyesuaikan model berdasarkan hasil test.
+## Screenshot pengumpulan
 
-## Mengambil screenshot MLflow
+Empat screenshot berikut menunjukkan perbandingan trial tuning, tiga seed, ablation, dan alias champion pada MLflow UI.
 
-Buka `http://127.0.0.1:5000`, pilih experiment `fashion-mnist-cnn`, dan simpan screenshot asli di `reports/screenshots/`.
+![ablation_compare.png](reports/screenshots/ablation_compare.png)
 
-1. `tuning_compare.png`: buka child runs pada parent `optuna-sweep`, pilih beberapa trial termasuk yang terbaik, lalu buka **Compare**. Tampilkan learning rate, batch size, dropout, dan `best_val_f1_macro`.
-2. `seeds_compare.png`: filter tag `purpose = full`, pilih tiga run, dan tampilkan seed serta validation/test F1.
-3. `ablation_compare.png`: pilih full dan kedua ablation dengan seed 42 yang sama; tampilkan `augmentation`, `dropout`, dan validation F1. Rata-rata tiga seed ada dalam laporan.
-4. `registry_champion.png`: buka model `fashion-mnist-cnn` di model registry; tampilkan version, alias `champion`, dan source run.
+![registry_champion.png](reports/screenshots/registry_champion.png)
 
-Screenshot tidak dibuat dari grafik buatan yang menyerupai UI. Jalankan kembali `report` setelah menambahkan screenshot agar daftar bukti ikut diperbarui. Nama dan posisi menu dapat berbeda menurut versi MLflow yang terpasang.
+![seeds_compare.png](reports/screenshots/seeds_compare.png)
 
-## Pengumpulan dan reproduksi
+![tuning_compare.png](reports/screenshots/tuning_compare.png)
 
-Kumpulkan repositori kode, konfigurasi, dependensi, pointer DVC, laporan, CSV hasil, dan screenshot. `outputs`, data mentah, cache, SQLite, dan artifact MLflow diabaikan oleh Git. Screenshot dan figure laporan juga diabaikan secara default karena merupakan artifact; tambahkan bukti yang sudah final secara eksplisit:
+## Kesimpulan
 
-```powershell
-git add -f reports/screenshots/*.png reports/figures/*
-git add reports/laporan.md reports/run_results.csv reports/status.json
-git commit -m "Add practicum results and MLflow evidence"
-```
+Konfigurasi terpilih memperoleh validation macro F1 0.8216 ± 0.0182; baseline satu seed memperoleh 0.8307. Selisih rata-rata terhadap baseline adalah -0.90 poin persentase. Hasil ablation di atas menjelaskan kontribusi komponen pada tiga seed yang dipasangkan. Model terdaftar dan inferensi melalui alias champion telah diverifikasi.
 
-Setiap run menyimpan versi paket aktual sebagai artifact `context/requirements-lock.txt`. Untuk mengulang environment persis, ambil file itu dari run sumber dan gunakan interpreter dengan versi yang sama. Commit kode, hash DVC, hash indeks split, seed, serta diff yang belum di-commit juga dicatat pada run.
+Hasil tiga seed belum mendukung hipotesis peningkatan terhadap baseline. Perbandingan ini terbatas karena baseline hanya memakai satu seed.
 
-Remote DVC lokal berfungsi sebagai salinan pada laptop ini; remote itu tidak dapat diakses otomatis oleh dosen dari mesin lain. Untuk reproduksi data tanpa remote bersama, jalankan `prepare-data` dari konfigurasi yang sama dan cocokkan hash dengan pointer/manifest sumber. Jika pengumpulan memerlukan data melalui `dvc pull` pada mesin lain, gunakan remote bersama yang kamu sediakan sebelum pengumpulan.
+Ablation belum mendukung hipotesis bahwa augmentasi membantu pada anggaran lima epoch ini. Penyebabnya belum diuji; hasil ini tidak cukup untuk menyatakan komponen tersebut selalu merugikan.
 
-## Referensi
-
-- Tugas dan prinsip eksperimen: slide 19–23, 28, 31, 44, 47–48, dan 88 pada PDF materi.
-- [MLflow tracking server](https://mlflow.org/docs/latest/self-hosting/architecture/tracking-server/)
-- [MLflow untuk PyTorch dan model registry](https://mlflow.org/docs/latest/ml/deep-learning/pytorch)
-- [Optuna: SQLite dan resume](https://optuna.readthedocs.io/en/stable/tutorial/20_recipes/001_rdb.html)
-- [DVC: data versioning](https://doc.dvc.org/start)
-- [Fashion-MNIST](https://github.com/zalandoresearch/fashion-mnist)
+Ablation belum mendukung hipotesis bahwa dropout membantu pada anggaran lima epoch ini. Penyebabnya belum diuji; hasil ini tidak cukup untuk menyatakan komponen tersebut selalu merugikan.
