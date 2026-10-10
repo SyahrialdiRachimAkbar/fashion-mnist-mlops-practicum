@@ -14,5 +14,6 @@ mlruns/
 *.db-wal
 outputs/
 reports/figures/
-reports/screenshots/
+reports/screenshots/*
 !reports/screenshots/.gitkeep
+.playwright-mcp/

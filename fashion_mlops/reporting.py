@@ -33,7 +33,7 @@ def report(config: dict) -> str:
         f"Status eksperimen: {'selesai' if complete else 'belum selesai; angka hasil belum boleh disimpulkan'}. Screenshot dikumpulkan terpisah.", "",
         "## Pertanyaan dan hipotesis", "",
         "Apakah tuning hyperparameter memperbaiki macro F1 CNN Fashion-MNIST dibanding baseline? Apakah augmentasi ringan dan dropout membantu generalisasi pada split yang tetap?", "",
-        "Hipotesis diuji melalui baseline, tuning, pengulangan tiga seed, dan penghapusan komponen satu per satu. Hipotesis yang tidak didukung hasil tetap dilaporkan.", "",
+        "Hipotesis awal: konfigurasi hasil tuning meningkatkan rata-rata validation macro F1 terhadap baseline; augmentasi meningkatkan F1 terhadap kondisi tanpa augmentasi; dropout meningkatkan F1 terhadap kondisi tanpa dropout. Pengujian memakai split tetap dan pasangan seed yang sama untuk ablation.", "",
         "## Metode", "",
         f"Rancangan memakai subset stratified Fashion-MNIST: {config['dataset']['train_size']:,} train dan {config['dataset']['val_size']:,} validation dari training resmi, dengan split seed {config['dataset']['split_seed']}. Test set resmi hanya dibuka setelah seleksi dikunci. Normalisasi dihitung pada train saja.", "",
         f"CNN terdiri dari convolution 16 dan 32 channel, max pooling, serta classifier 64 unit. Optimizer Adam; setiap training mendapat {config['training']['epochs']} epoch di CPU. Checkpoint dipilih dari validation macro F1 tertinggi; jika seri, epoch lebih awal dipertahankan. Accuracy dan loss menjadi metrik tambahan.", "",
@@ -80,7 +80,8 @@ def report(config: dict) -> str:
         lines += ["## Evaluasi test final", "", "Semua kandidat dan aturan pemilihan champion sudah dikunci sebelum test set dibuka. Test tidak dipakai untuk memilih konfigurasi atau seed.", "", "| Metrik | Mean ± sample std, tiga seed |", "|---|---:|"]
         for metric, summary in final["summary"].items():
             lines.append(f"| {metric} | {summary['mean']:.4f} ± {summary['std']:.4f} |")
-        lines += ["", f"Champion dipilih berdasarkan validation macro F1 dari run `{final['champion_run_id']}`.", ""]
+        lines += ["", f"Champion dipilih berdasarkan validation macro F1 dari run `{final['champion_run_id']}`.", "",
+                  "Ruang kandidat champion ditetapkan pada tiga seed model full hasil tuning. Ablation dipakai untuk mengukur pengaruh komponen dan tidak masuk ruang kandidat tersebut. Karena itu, alias champion merujuk model full terpilih. Kondisi tanpa augmentasi dan tanpa dropout memiliki validation F1 lebih tinggi, tetapi belum dievaluasi pada test set dalam rancangan ini.", ""]
         figures = output / "figures"
         figures.mkdir(exist_ok=True)
         source = ROOT / "outputs" / "runs" / final["champion_run_id"]
@@ -90,6 +91,11 @@ def report(config: dict) -> str:
     if state.get("registry"):
         registry = state["registry"]
         lines += ["## Model registry", "", f"Model `{registry['name']}`, versi `{registry['version']}`, memiliki alias `champion`. Inferensi memakai `{registry['uri']}`. Pemeriksaan output registry terhadap checkpoint sumber: {'sesuai' if registry['checkpoint_match'] else 'belum sesuai'}.", ""]
+        for name in ["champion_predictions.json", "verification.json"]:
+            source = ROOT / "outputs" / name
+            if source.exists():
+                shutil.copy2(source, output / name)
+                lines += [f"Bukti tambahan: [{name}]({name}).", ""]
     lines += [
         "## Reproduksibilitas dan batasan", "",
         "Setiap run menyimpan commit Git, diff kode, hash DVC, hash split, konfigurasi, seed, versi environment, metrik per epoch, dan model. Source code, pointer DVC, serta laporan disimpan di Git; database MLflow, artifact, dan data mentah berada di penyimpanan lokal.", "",
@@ -98,10 +104,18 @@ def report(config: dict) -> str:
         "Simpan screenshot asli MLflow UI dalam reports/screenshots: tuning_compare.png, seeds_compare.png, ablation_compare.png, dan registry_champion.png. Screenshot harus menunjukkan run yang benar-benar selesai. Panduan pemilihannya ada pada README.", "",
         "Screenshot yang tersedia: " + (", ".join(progress["screenshots"]) or "belum ada") + ".", "",
     ]
+    for name in sorted(progress["screenshots"]):
+        lines += [f"![{name}](screenshots/{name})", ""]
     if complete:
         full = mean_std([row["best_val_f1_macro"] for row in state["full"]])
         base = state["baseline"]["best_val_f1_macro"]
         lines += ["## Kesimpulan", "", f"Konfigurasi terpilih memperoleh validation macro F1 {full['mean']:.4f} ± {full['std']:.4f}; baseline satu seed memperoleh {base:.4f}. Selisih rata-rata terhadap baseline adalah {(full['mean'] - base) * 100:.2f} poin persentase. Hasil ablation di atas menjelaskan kontribusi komponen pada tiga seed yang dipasangkan. Model terdaftar dan inferensi melalui alias champion telah diverifikasi.", ""]
+        comparison = "belum mendukung" if full["mean"] <= base else "mendukung secara deskriptif"
+        lines += [f"Hasil tiga seed {comparison} hipotesis peningkatan terhadap baseline. Perbandingan ini terbatas karena baseline hanya memakai satu seed.", ""]
+        for group, component in [("ablation_no_augmentation", "augmentasi"), ("ablation_no_dropout", "dropout")]:
+            delta = paired_deltas(state["full"], state[group], "best_val_f1_macro")["mean"]
+            finding = "belum mendukung" if delta <= 0 else "mendukung secara deskriptif"
+            lines += [f"Ablation {finding} hipotesis bahwa {component} membantu pada anggaran lima epoch ini. Penyebabnya belum diuji; hasil ini tidak cukup untuk menyatakan komponen tersebut selalu merugikan.", ""]
     else:
         lines += ["## Pekerjaan yang belum selesai", "", "Selesaikan kelompok eksperimen yang belum mencapai target, evaluasi final, registrasi dan prediksi champion, lalu ambil screenshot MLflow UI. Jangan mengumpulkan laporan ini sebagai laporan hasil final.", ""]
     destination = output / "laporan.md"

@@ -1,14 +1,19 @@
 {
   "counts": {
-    "baseline": 0,
-    "tuning": 0,
-    "full": 0,
-    "ablation_no_augmentation": 0,
-    "ablation_no_dropout": 0
+    "baseline": 1,
+    "tuning": 20,
+    "full": 3,
+    "ablation_no_augmentation": 3,
+    "ablation_no_dropout": 3
   },
-  "completed_training_runs": 0,
-  "experiments_complete": false,
-  "screenshots": [],
+  "completed_training_runs": 30,
+  "experiments_complete": true,
+  "screenshots": [
+    "ablation_compare.png",
+    "registry_champion.png",
+    "seeds_compare.png",
+    "tuning_compare.png"
+  ],
   "config_matches_state": true,
-  "data_version": null
+  "data_version": "c95678b8afeec35589cf720d41ef426b.dir"
 }

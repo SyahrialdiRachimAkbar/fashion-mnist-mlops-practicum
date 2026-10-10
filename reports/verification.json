@@ -1,0 +1,14 @@
+{
+  "verified_training_runs": 30,
+  "epochs_per_run": 5,
+  "tuning_trials": 20,
+  "data_version": {
+    "data_md5": "c95678b8afeec35589cf720d41ef426b.dir",
+    "split_sha256": "d10782b84d0544a9a4bc7129d613aa075f226843d89b4dac0408399e4c9a724c",
+    "manifest_sha256": "05da3132c7aad0c9964401d9c0e66b0e3dd3cd03a2baf77258197d6143350778",
+    "dataset": "Fashion-MNIST"
+  },
+  "registry_version": "1",
+  "champion_run_id": "ed05f1188199455aa8cd4e222bd02aac",
+  "passed": true
+}

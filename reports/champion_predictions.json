@@ -1,0 +1,62 @@
+[
+  {
+    "validation_index": 0,
+    "actual": "T-shirt/top",
+    "predicted": "T-shirt/top",
+    "confidence": 0.9187682867050171
+  },
+  {
+    "validation_index": 1,
+    "actual": "Ankle boot",
+    "predicted": "Ankle boot",
+    "confidence": 0.9901624917984009
+  },
+  {
+    "validation_index": 2,
+    "actual": "Shirt",
+    "predicted": "T-shirt/top",
+    "confidence": 0.6998127102851868
+  },
+  {
+    "validation_index": 3,
+    "actual": "Trouser",
+    "predicted": "Trouser",
+    "confidence": 0.9862791299819946
+  },
+  {
+    "validation_index": 4,
+    "actual": "Sandal",
+    "predicted": "Sandal",
+    "confidence": 0.9983596205711365
+  },
+  {
+    "validation_index": 5,
+    "actual": "Sandal",
+    "predicted": "Sandal",
+    "confidence": 0.9994398951530457
+  },
+  {
+    "validation_index": 6,
+    "actual": "Sandal",
+    "predicted": "Sandal",
+    "confidence": 0.9927632212638855
+  },
+  {
+    "validation_index": 7,
+    "actual": "Sneaker",
+    "predicted": "Sneaker",
+    "confidence": 0.968940794467926
+  },
+  {
+    "validation_index": 8,
+    "actual": "Sandal",
+    "predicted": "Sandal",
+    "confidence": 0.9187783598899841
+  },
+  {
+    "validation_index": 9,
+    "actual": "Shirt",
+    "predicted": "Shirt",
+    "confidence": 0.6246308088302612
+  }
+]
