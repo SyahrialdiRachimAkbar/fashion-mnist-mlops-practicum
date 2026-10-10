@@ -1,0 +1,14 @@
+{
+  "counts": {
+    "baseline": 0,
+    "tuning": 0,
+    "full": 0,
+    "ablation_no_augmentation": 0,
+    "ablation_no_dropout": 0
+  },
+  "completed_training_runs": 0,
+  "experiments_complete": false,
+  "screenshots": [],
+  "config_matches_state": true,
+  "data_version": null
+}

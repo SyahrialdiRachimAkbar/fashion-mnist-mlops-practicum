@@ -1,0 +1,9 @@
+torch>=2.9,<3
+torchvision>=0.24,<1
+mlflow>=3.1,<4
+optuna>=4.5,<5
+dvc>=3.60,<4
+numpy>=2,<3
+scikit-learn>=1.7,<2
+matplotlib>=3.10,<4
+PyYAML>=6,<7

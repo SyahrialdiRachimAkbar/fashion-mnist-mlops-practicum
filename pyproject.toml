@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fashion-mlops-praktikum"
+version = "0.1.0"
+description = "Praktikum experiment tracking CNN Fashion-MNIST dengan MLflow, Optuna, dan DVC"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "torch>=2.9,<3",
+  "torchvision>=0.24,<1",
+  "mlflow>=3.1,<4",
+  "optuna>=4.5,<5",
+  "dvc>=3.60,<4",
+  "numpy>=2,<3",
+  "scikit-learn>=1.7,<2",
+  "matplotlib>=3.10,<4",
+  "PyYAML>=6,<7",
+]
+
+[project.scripts]
+fashion-mlops = "fashion_mlops.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["fashion_mlops*"]

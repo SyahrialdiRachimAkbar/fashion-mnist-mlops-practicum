@@ -1,0 +1,25 @@
+experiment_name: fashion-mnist-cnn
+tracking_uri: http://127.0.0.1:5000
+dataset:
+  train_size: 12000
+  val_size: 3000
+  split_seed: 42
+training:
+  epochs: 5
+  seed: 42
+  lr: 0.001
+  batch_size: 64
+  dropout: 0.3
+  augmentation: true
+  weight_decay: 0.0
+  num_workers: 0
+  cpu_threads: 4
+tuning:
+  completed_trials: 20
+  sampler_seed: 42
+  lr_min: 0.0001
+  lr_max: 0.003
+  batch_sizes: [64, 128]
+  dropouts: [0.2, 0.35, 0.5]
+seeds: [42, 123, 2026]
+registered_model_name: fashion-mnist-cnn
